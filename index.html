@@ -1,0 +1,1976 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>台北壹零壹之圖 — 浮世繪風格 3D PBR 建築群模型</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #142636;
+      font-family: 'Inter', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .font-ukiyoe {
+      font-family: 'Noto Serif TC', serif;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      touch-action: none;
+    }
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 30, 0.4);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(232, 220, 194, 0.35);
+      border-radius: 9999px;
+    }
+    input[type="range"] {
+      accent-color: #c84b31;
+    }
+  </style>
+  <!-- Import Map for Three.js ES Modules -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body class="text-stone-100">
+
+  <!-- 3D Viewport Container -->
+  <div id="canvas-container" class="fixed inset-0"></div>
+
+  <!-- Ukiyo-e Cartouche Title Overlay (Top-Left, faithful to Ukiyo-e woodblock stamps) -->
+  <div class="fixed top-4 left-4 z-20 pointer-events-none flex items-start gap-2.5 sm:gap-3">
+    <div class="bg-[#b83b2b]/95 border-2 border-[#f2e6cf] shadow-2xl px-2.5 sm:px-3 py-3.5 sm:py-4 rounded-sm flex flex-col items-center">
+      <span class="font-ukiyoe text-[#fbf3e4] text-base sm:text-xl font-black tracking-widest leading-tight" style="writing-mode: vertical-rl;">
+        台北壹零壹之圖
+      </span>
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <div class="bg-[#f4ead5]/95 text-[#1e2426] border border-[#1e2426] px-2 sm:px-2.5 py-2 rounded-sm shadow-lg">
+        <span class="font-ukiyoe text-xs sm:text-sm font-bold tracking-wider" style="writing-mode: vertical-rl;">
+          俯瞰街景三維模型
+        </span>
+      </div>
+      <!-- Traditional Red Hanko Seal Stamp -->
+      <div class="w-8 h-8 border-2 border-[#b83b2b] bg-[#f4ead5]/90 text-[#b83b2b] font-ukiyoe text-[10px] font-bold flex items-center justify-center leading-none text-center rounded-sm shadow">
+        壹零<br>壹印
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="fixed inset-0 z-50 bg-[#152838] flex flex-col items-center justify-center transition-opacity duration-500">
+    <div class="w-12 h-12 border-4 border-[#e8dcc2]/30 border-t-[#c84b31] rounded-full animate-spin mb-4"></div>
+    <p class="font-ukiyoe text-lg text-[#f4ead5] tracking-widest">正在建構台北 101 與信義區浮世繪 PBR 街景...</p>
+    <p class="text-xs text-stone-400 mt-1">Generating High-Precision Bamboo Modules, Ziggurat Pavilion, Skybridge &amp; PBR Maps</p>
+  </div>
+
+  <!-- Toast Notification Banner (Replaces alert) -->
+  <div id="toast-banner" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 pointer-events-none opacity-0 transition-all duration-300 translate-y-2">
+    <div id="toast-message" class="bg-stone-900/95 border border-[#e8dcc2]/50 text-[#f4ead5] px-4 py-2.5 rounded-full shadow-2xl text-xs sm:text-sm font-medium backdrop-blur-md">
+      模型已匯出
+    </div>
+  </div>
+
+  <!-- Bottom Camera Preset Bar -->
+  <div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 max-w-[96vw]">
+    <div class="bg-stone-900/85 backdrop-blur-md border border-[#e8dcc2]/25 rounded-full p-1.5 shadow-2xl flex items-center gap-1 sm:gap-1.5 overflow-x-auto">
+      <button data-cam="masterView" class="cam-btn px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap bg-[#c84b31] text-white transition">
+        浮世繪原圖構圖 (Master View)
+      </button>
+      <button data-cam="bambooDetail" class="cam-btn px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap text-stone-200 hover:bg-stone-700/70 transition">
+        101竹節與如意紋特寫
+      </button>
+      <button data-cam="terracedPavilion" class="cam-btn px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap text-stone-200 hover:bg-stone-700/70 transition">
+        紅磚綠瓦建築與天橋
+      </button>
+      <button data-cam="topDownAerial" class="cam-btn px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap text-stone-200 hover:bg-stone-700/70 transition">
+        信義區高空鳥瞰
+      </button>
+      <button data-cam="goldenHour" class="cam-btn px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap text-stone-200 hover:bg-stone-700/70 transition">
+        暮光側逆光渲染
+      </button>
+    </div>
+  </div>
+
+  <!-- Collapsible PBR Pipeline & Export HUD (Top-Right) -->
+  <div class="fixed top-4 right-4 z-30 flex flex-col items-end">
+    <button id="toggle-hud-btn" class="bg-stone-900/90 hover:bg-stone-800 border border-[#e8dcc2]/30 text-[#f4ead5] px-3.5 py-2 rounded-xl shadow-xl backdrop-blur-md flex items-center gap-2 text-xs sm:text-sm font-medium transition">
+      <svg class="w-4 h-4 text-[#e07a5f]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+      </svg>
+      <span>PBR 管線與模型匯出</span>
+    </button>
+
+    <div id="hud-panel" class="mt-2 w-72 sm:w-80 max-h-[78vh] overflow-y-auto bg-stone-900/90 backdrop-blur-md border border-[#e8dcc2]/25 rounded-2xl p-4 shadow-2xl space-y-4 transition-all duration-200">
+      
+      <!-- 1. PBR Shading Mode Inspector -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-[#e8dcc2]">PBR 渲染著色模式</span>
+          <span id="poly-count" class="text-[10px] text-stone-400 font-mono">Tris: --</span>
+        </div>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button data-mode="pbr" class="mode-btn px-2.5 py-2 rounded-lg text-xs font-medium bg-[#2a6f68] text-white border border-[#52b788]/50 transition text-left">
+            ✦ PBR Shaded
+          </button>
+          <button data-mode="clay" class="mode-btn px-2.5 py-2 rounded-lg text-xs font-medium bg-stone-800/90 text-stone-300 hover:bg-stone-700 border border-stone-700 transition text-left">
+            ◻ Clay White Model
+          </button>
+          <button data-mode="wireframe" class="mode-btn px-2.5 py-2 rounded-lg text-xs font-medium bg-stone-800/90 text-stone-300 hover:bg-stone-700 border border-stone-700 transition text-left">
+            # Wireframe Topology
+          </button>
+          <button data-mode="roughness" class="mode-btn px-2.5 py-2 rounded-lg text-xs font-medium bg-stone-800/90 text-stone-300 hover:bg-stone-700 border border-stone-700 transition text-left">
+            ◐ Roughness Map
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Real-time Sun & Exposure Controls -->
+      <div class="border-t border-stone-700/70 pt-3 space-y-2.5">
+        <span class="text-xs font-semibold uppercase tracking-wider text-[#e8dcc2] block">物理光照與太陽角度</span>
+        
+        <div>
+          <div class="flex justify-between text-xs text-stone-300 mb-1">
+            <span>太陽方位角 (Sun Azimuth)</span>
+            <span id="val-azimuth" class="font-mono text-stone-400">128°</span>
+          </div>
+          <input id="slider-azimuth" type="range" min="0" max="360" value="128" class="w-full h-1.5 bg-stone-700 rounded-lg cursor-pointer">
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs text-stone-300 mb-1">
+            <span>太陽仰角 (Sun Elevation)</span>
+            <span id="val-elevation" class="font-mono text-stone-400">42°</span>
+          </div>
+          <input id="slider-elevation" type="range" min="8" max="85" value="42" class="w-full h-1.5 bg-stone-700 rounded-lg cursor-pointer">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <div class="flex justify-between text-[11px] text-stone-300 mb-1">
+              <span>陽光強度</span>
+              <span id="val-intensity" class="font-mono text-stone-400">2.8</span>
+            </div>
+            <input id="slider-intensity" type="range" min="0.5" max="5.0" step="0.1" value="2.8" class="w-full h-1.5 bg-stone-700 rounded-lg cursor-pointer">
+          </div>
+          <div>
+            <div class="flex justify-between text-[11px] text-stone-300 mb-1">
+              <span>ACES 曝光</span>
+              <span id="val-exposure" class="font-mono text-stone-400">1.05</span>
+            </div>
+            <input id="slider-exposure" type="range" min="0.5" max="1.8" step="0.05" value="1.05" class="w-full h-1.5 bg-stone-700 rounded-lg cursor-pointer">
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Stylistic & Scene Layer Toggles -->
+      <div class="border-t border-stone-700/70 pt-3 space-y-2">
+        <span class="text-xs font-semibold uppercase tracking-wider text-[#e8dcc2] block">浮世繪圖層與動畫開關</span>
+        
+        <label class="flex items-center justify-between text-xs text-stone-200 cursor-pointer py-1">
+          <span>木版畫墨線勾邊 (Ink Outlines)</span>
+          <input id="toggle-edges" type="checkbox" checked class="w-4 h-4 rounded accent-[#c84b31] cursor-pointer">
+        </label>
+
+        <label class="flex items-center justify-between text-xs text-stone-200 cursor-pointer py-1">
+          <span>立體浮世繪雲層飄移 (Cloud Drift)</span>
+          <input id="toggle-cloud-anim" type="checkbox" checked class="w-4 h-4 rounded accent-[#c84b31] cursor-pointer">
+        </label>
+
+        <label class="flex items-center justify-between text-xs text-stone-200 cursor-pointer py-1">
+          <span>遠景山脈等高線墨紋 (Mountain Contours)</span>
+          <input id="toggle-mountain-grid" type="checkbox" checked class="w-4 h-4 rounded accent-[#c84b31] cursor-pointer">
+        </label>
+      </div>
+
+      <!-- 4. 3D Model Export Section -->
+      <div class="border-t border-stone-700/70 pt-3">
+        <span class="text-xs font-semibold uppercase tracking-wider text-[#e8dcc2] block mb-2">匯出實體 3D 模型檔案</span>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="export-glb-btn" class="bg-[#c84b31] hover:bg-[#b03e26] text-white py-2 px-3 rounded-xl text-xs font-semibold shadow-md transition flex items-center justify-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            <span>匯出 .GLB</span>
+          </button>
+          <button id="export-obj-btn" class="bg-stone-700 hover:bg-stone-600 text-stone-100 py-2 px-3 rounded-xl text-xs font-semibold shadow-md transition flex items-center justify-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            <span>匯出 .OBJ</span>
+          </button>
+        </div>
+        <p class="text-[10px] text-stone-400 mt-1.5 leading-relaxed">
+          .GLB 內含完整 PBR 貼圖與八節竹節建築網格，可直接匯入 Blender / Unreal / Unity。
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Main Three.js Application Logic -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+    import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
+
+    // =========================================================================
+    // 1. GLOBAL STATE & CAMERA PRESETS (MATCHING REFERENCE ILLUSTRATION)
+    // =========================================================================
+    let scene, camera, renderer, controls;
+    let sunLight, hemiLight, fillLight;
+    let cityExportGroup, cloudsGroup, mountainGridMesh;
+    const pbrMeshes = [];
+    let cloudAnimEnabled = true;
+
+    let targetCamPos = null;
+    let targetLookAt = null;
+
+    // 5 Architectural Camera Presets
+    const CAMERA_PRESETS = {
+      masterView: {
+        // Exact elevated 3/4 framing matching the Ukiyo-e reference print
+        pos: new THREE.Vector3(-34, 62, 86),
+        target: new THREE.Vector3(6, 30, -4),
+        sun: { azimuth: 128, elevation: 42, intensity: 2.8 }
+      },
+      bambooDetail: {
+        // Close inspection of Taipei 101's 8 outward-flaring bamboo modules, coins & Ruyi brackets
+        pos: new THREE.Vector3(-3, 28, 34),
+        target: new THREE.Vector3(19, 54, -3),
+        sun: { azimuth: 118, elevation: 46, intensity: 3.0 }
+      },
+      terracedPavilion: {
+        // Foreground red-brick ziggurat complex, green-tiled pavilion roof & Z-shaped white skybridge
+        pos: new THREE.Vector3(-42, 27, 54),
+        target: new THREE.Vector3(-6, 9, 14),
+        sun: { azimuth: 138, elevation: 44, intensity: 2.7 }
+      },
+      topDownAerial: {
+        // High-altitude bird's-eye overview of Xinyi District grid
+        pos: new THREE.Vector3(-10, 154, 42),
+        target: new THREE.Vector3(2, 6, -2),
+        sun: { azimuth: 135, elevation: 55, intensity: 2.6 }
+      },
+      goldenHour: {
+        // Dramatic warm side-rim lighting highlighting PBR roughness & deep module shadows
+        pos: new THREE.Vector3(56, 44, 62),
+        target: new THREE.Vector3(14, 38, -2),
+        sun: { azimuth: 292, elevation: 16, intensity: 3.7 }
+      }
+    };
+
+    let toastTimeout;
+    function showToast(msg) {
+      const banner = document.getElementById('toast-banner');
+      const text = document.getElementById('toast-message');
+      text.textContent = msg;
+      banner.classList.remove('opacity-0', 'translate-y-2');
+      banner.classList.add('opacity-100', 'translate-y-0');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        banner.classList.add('opacity-0', 'translate-y-2');
+        banner.classList.remove('opacity-100', 'translate-y-0');
+      }, 3200);
+    }
+
+    // =========================================================================
+    // 2. PROCEDURAL PBR TEXTURE GENERATOR (ALBEDO, BUMP, ROUGHNESS)
+    // =========================================================================
+    function createProceduralTextures() {
+      const makeCanvas = (w, h) => {
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        return { canvas: c, ctx: c.getContext('2d') };
+      };
+
+      const applyWoodblockGrain = (ctx, w, h, alpha = 0.08) => {
+        ctx.save();
+        for (let i = 0; i < (w * h) / 14; i++) {
+          const x = Math.random() * w;
+          const y = Math.random() * h;
+          const len = 2 + Math.random() * 6;
+          ctx.fillStyle = Math.random() > 0.5 ? `rgba(255,248,230,${alpha})` : `rgba(18,24,28,${alpha})`;
+          ctx.fillRect(x, y, len, 1);
+        }
+        ctx.restore();
+      };
+
+      const wrapRepeat = (tex, rx, ry, isColor = true) => {
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(rx, ry);
+        if (isColor) tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
+      };
+
+      // 1. Taipei 101 Turquoise-Teal Glass Curtain Wall (8-floor louver grid per module)
+      const gW = 512, gH = 512;
+      const glassAlbedoC = makeCanvas(gW, gH);
+      const glassBumpC = makeCanvas(gW, gH);
+      const glassRoughC = makeCanvas(gW, gH);
+
+      glassAlbedoC.ctx.fillStyle = '#24665f';
+      glassAlbedoC.ctx.fillRect(0, 0, gW, gH);
+      glassBumpC.ctx.fillStyle = '#c0c0c0';
+      glassBumpC.ctx.fillRect(0, 0, gW, gH);
+      glassRoughC.ctx.fillStyle = '#262626';
+      glassRoughC.ctx.fillRect(0, 0, gW, gH);
+
+      const cols = 12, rows = 8; // 8 distinct floors per bamboo module
+      const cellW = gW / cols, cellH = gH / rows;
+      for (let r = 0; r < rows; r++) {
+        // Horizontal spandrel & louver band per floor
+        glassAlbedoC.ctx.fillStyle = '#153b37';
+        glassAlbedoC.ctx.fillRect(0, r * cellH, gW, 10);
+        glassAlbedoC.ctx.fillStyle = '#82a68f';
+        glassAlbedoC.ctx.fillRect(0, r * cellH + 10, gW, 3);
+
+        glassBumpC.ctx.fillStyle = '#ffffff';
+        glassBumpC.ctx.fillRect(0, r * cellH, gW, 11);
+        glassRoughC.ctx.fillStyle = '#999999';
+        glassRoughC.ctx.fillRect(0, r * cellH, gW, 11);
+
+        for (let c = 0; c < cols; c++) {
+          const x = c * cellW, y = r * cellH;
+          const greenTone = 98 + Math.floor(Math.random() * 26);
+          const blueTone = 90 + Math.floor(Math.random() * 22);
+          glassAlbedoC.ctx.fillStyle = `rgb(32, ${greenTone}, ${blueTone})`;
+          glassAlbedoC.ctx.fillRect(x + 3, y + 14, cellW - 6, cellH - 17);
+
+          // Subtle window reflection highlight strip
+          glassAlbedoC.ctx.fillStyle = 'rgba(225, 242, 232, 0.14)';
+          glassAlbedoC.ctx.fillRect(x + 5, y + 16, (cellW - 10) * 0.45, cellH - 21);
+
+          // Vertical mullion
+          glassAlbedoC.ctx.fillStyle = '#132e2c';
+          glassAlbedoC.ctx.fillRect(x, y, 3, cellH);
+          glassBumpC.ctx.fillStyle = '#f5f5f5';
+          glassBumpC.ctx.fillRect(x, y, 3, cellH);
+        }
+      }
+      applyWoodblockGrain(glassAlbedoC.ctx, gW, gH, 0.06);
+
+      // 2. Weathered Terracotta Red Brick Texture with Mortar Bump Grooves
+      const bW = 512, bH = 512;
+      const brickAlbedoC = makeCanvas(bW, bH);
+      const brickBumpC = makeCanvas(bW, bH);
+      const brickRoughC = makeCanvas(bW, bH);
+
+      brickAlbedoC.ctx.fillStyle = '#5c261e'; // Dark mortar lines
+      brickAlbedoC.ctx.fillRect(0, 0, bW, bH);
+      brickBumpC.ctx.fillStyle = '#303030';
+      brickBumpC.ctx.fillRect(0, 0, bW, bH);
+      brickRoughC.ctx.fillStyle = '#e5e5e5';
+      brickRoughC.ctx.fillRect(0, 0, bW, bH);
+
+      const brickRows = 24, brickCols = 12;
+      const bh = bH / brickRows, bw = bW / brickCols;
+      for (let r = 0; r < brickRows; r++) {
+        const offset = (r % 2) * (bw * 0.5);
+        for (let c = -1; c <= brickCols; c++) {
+          const bx = c * bw + offset;
+          const by = r * bh;
+          const redVal = 158 + Math.floor(Math.random() * 34);
+          const greenVal = Math.floor(redVal * 0.36);
+          const blueVal = Math.floor(redVal * 0.27);
+          brickAlbedoC.ctx.fillStyle = `rgb(${redVal}, ${greenVal}, ${blueVal})`;
+          brickAlbedoC.ctx.fillRect(bx + 2, by + 2, bw - 4, bh - 4);
+
+          brickBumpC.ctx.fillStyle = '#e8e8e8';
+          brickBumpC.ctx.fillRect(bx + 2.5, by + 2.5, bw - 5, bh - 5);
+
+          brickRoughC.ctx.fillStyle = `rgb(${185 + Math.floor(Math.random() * 30)}, 195, 195)`;
+          brickRoughC.ctx.fillRect(bx + 2, by + 2, bw - 4, bh - 4);
+        }
+      }
+      applyWoodblockGrain(brickAlbedoC.ctx, bW, bH, 0.09);
+
+      // 3. Glazed Dark-Green Chinese Ribbed Roof Tiles
+      const tW = 512, tH = 512;
+      const tileAlbedoC = makeCanvas(tW, tH);
+      const tileBumpC = makeCanvas(tW, tH);
+      const tileRoughC = makeCanvas(tW, tH);
+
+      const ribs = 24;
+      const ribW = tW / ribs;
+      for (let i = 0; i < ribs; i++) {
+        const grad = tileAlbedoC.ctx.createLinearGradient(i * ribW, 0, (i + 1) * ribW, 0);
+        grad.addColorStop(0, '#14382d');
+        grad.addColorStop(0.5, '#3b7d66');
+        grad.addColorStop(1, '#14382d');
+        tileAlbedoC.ctx.fillStyle = grad;
+        tileAlbedoC.ctx.fillRect(i * ribW, 0, ribW, tH);
+
+        const bGrad = tileBumpC.ctx.createLinearGradient(i * ribW, 0, (i + 1) * ribW, 0);
+        bGrad.addColorStop(0, '#1a1a1a');
+        bGrad.addColorStop(0.5, '#ffffff');
+        bGrad.addColorStop(1, '#1a1a1a');
+        tileBumpC.ctx.fillStyle = bGrad;
+        tileBumpC.ctx.fillRect(i * ribW, 0, ribW, tH);
+
+        tileRoughC.ctx.fillStyle = '#555555';
+        tileRoughC.ctx.fillRect(i * ribW, 0, ribW, tH);
+      }
+      for (let y = 0; y < tH; y += 32) {
+        tileAlbedoC.ctx.fillStyle = 'rgba(12, 28, 22, 0.6)';
+        tileAlbedoC.ctx.fillRect(0, y, tW, 3);
+        tileBumpC.ctx.fillStyle = '#101010';
+        tileBumpC.ctx.fillRect(0, y, tW, 3);
+      }
+      applyWoodblockGrain(tileAlbedoC.ctx, tW, tH, 0.07);
+
+      // 4. Warm Washi-Paper Cream / Ochre Facade Texture with Window Grid
+      const wW = 256, wH = 256;
+      const wallAlbedoC = makeCanvas(wW, wH);
+      const wallBumpC = makeCanvas(wW, wH);
+      wallAlbedoC.ctx.fillStyle = '#e5d6b8';
+      wallAlbedoC.ctx.fillRect(0, 0, wW, wH);
+      wallBumpC.ctx.fillStyle = '#d0d0d0';
+      wallBumpC.ctx.fillRect(0, 0, wW, wH);
+      for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 8; c++) {
+          const wx = c * (wW / 8) + 4;
+          const wy = r * (wH / 10) + 4;
+          const ww = (wW / 8) - 8;
+          const wh = (wH / 10) - 8;
+          wallAlbedoC.ctx.fillStyle = '#293840';
+          wallAlbedoC.ctx.fillRect(wx, wy, ww, wh);
+          wallBumpC.ctx.fillStyle = '#383838';
+          wallBumpC.ctx.fillRect(wx, wy, ww, wh);
+        }
+      }
+      applyWoodblockGrain(wallAlbedoC.ctx, wW, wH, 0.09);
+
+      // 5. Dense Horizontal Window Bands Texture (for Grand Hyatt curved terracotta hotel)
+      const hW = 256, hH = 256;
+      const hotelAlbedoC = makeCanvas(hW, hH);
+      const hotelBumpC = makeCanvas(hW, hH);
+      hotelAlbedoC.ctx.fillStyle = '#c88d65';
+      hotelAlbedoC.ctx.fillRect(0, 0, hW, hH);
+      hotelBumpC.ctx.fillStyle = '#d5d5d5';
+      hotelBumpC.ctx.fillRect(0, 0, hW, hH);
+      for (let r = 0; r < 16; r++) {
+        const wy = r * (hH / 16) + 5;
+        hotelAlbedoC.ctx.fillStyle = '#2b3236';
+        hotelAlbedoC.ctx.fillRect(0, wy, hW, 6);
+        hotelBumpC.ctx.fillStyle = '#404040';
+        hotelBumpC.ctx.fillRect(0, wy, hW, 6);
+      }
+      applyWoodblockGrain(hotelAlbedoC.ctx, hW, hH, 0.08);
+
+      // 6. Washi Ground Base Texture
+      const mW = 512, mH = 512;
+      const groundC = makeCanvas(mW, mH);
+      groundC.ctx.fillStyle = '#cfc09f';
+      groundC.ctx.fillRect(0, 0, mW, mH);
+      applyWoodblockGrain(groundC.ctx, mW, mH, 0.12);
+
+      return {
+        glassAlbedo: wrapRepeat(new THREE.CanvasTexture(glassAlbedoC.canvas), 1, 1, true),
+        glassBump: wrapRepeat(new THREE.CanvasTexture(glassBumpC.canvas), 1, 1, false),
+        glassRough: wrapRepeat(new THREE.CanvasTexture(glassRoughC.canvas), 1, 1, false),
+        brickAlbedo: wrapRepeat(new THREE.CanvasTexture(brickAlbedoC.canvas), 2, 2, true),
+        brickBump: wrapRepeat(new THREE.CanvasTexture(brickBumpC.canvas), 2, 2, false),
+        brickRough: wrapRepeat(new THREE.CanvasTexture(brickRoughC.canvas), 2, 2, false),
+        tileAlbedo: wrapRepeat(new THREE.CanvasTexture(tileAlbedoC.canvas), 3, 3, true),
+        tileBump: wrapRepeat(new THREE.CanvasTexture(tileBumpC.canvas), 3, 3, false),
+        tileRough: wrapRepeat(new THREE.CanvasTexture(tileRoughC.canvas), 3, 3, false),
+        wallAlbedo: wrapRepeat(new THREE.CanvasTexture(wallAlbedoC.canvas), 2, 3, true),
+        wallBump: wrapRepeat(new THREE.CanvasTexture(wallBumpC.canvas), 2, 3, false),
+        hotelAlbedo: wrapRepeat(new THREE.CanvasTexture(hotelAlbedoC.canvas), 3, 2, true),
+        hotelBump: wrapRepeat(new THREE.CanvasTexture(hotelBumpC.canvas), 3, 2, false),
+        groundAlbedo: wrapRepeat(new THREE.CanvasTexture(groundC.canvas), 10, 10, true)
+      };
+    }
+
+    // Prussian-Blue to Warm-Washi Ukiyo-e Sky Environment & IBL Map
+    function createUkiyoSkyEnvironment(renderer) {
+      const c = document.createElement('canvas');
+      c.width = 1024;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+
+      const grad = ctx.createLinearGradient(0, 0, 0, 512);
+      grad.addColorStop(0.0, '#102c46');   // Deep Prussian blue zenith
+      grad.addColorStop(0.26, '#28577b');  // Classic Ukiyo-e indigo-blue
+      grad.addColorStop(0.45, '#a3c0c6');  // Soft mist teal-grey
+      grad.addColorStop(0.53, '#f2e6cf');  // Warm antique washi horizon
+      grad.addColorStop(1.0, '#cfc09f');   // Warm ground bounce
+
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 1024, 512);
+
+      for (let i = 0; i < 14000; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255,250,235,0.035)' : 'rgba(15,25,35,0.035)';
+        ctx.fillRect(Math.random() * 1024, Math.random() * 512, 3, 1);
+      }
+
+      const equirectTex = new THREE.CanvasTexture(c);
+      equirectTex.mapping = THREE.EquirectangularReflectionMapping;
+      equirectTex.colorSpace = THREE.SRGBColorSpace;
+
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      pmrem.compileEquirectangularShader();
+      const envRT = pmrem.fromEquirectangular(equirectTex);
+      pmrem.dispose();
+
+      return { backgroundTex: equirectTex, envMap: envRT.texture };
+    }
+
+    // =========================================================================
+    // 3. CUSTOM PROCEDURAL ARCHITECTURAL GEOMETRY BUILDERS
+    // =========================================================================
+
+    /**
+     * Taipei 101's signature double-chamfered W-corner prism geometry.
+     * Supports arbitrary bottom & top widths to create both the inward-tapering
+     * lower base and the 8 outward-flaring (上寬下窄) bamboo modules.
+     */
+    function createChamferedPrismGeometry(botHalfW, topHalfW, height) {
+      const c1 = 0.72;
+      const c2 = 0.85;
+      const rawPts = [
+        [-c1,  1.0], [ c1,  1.0],
+        [ c1,  c2 ], [ c2,  c2 ], [ c2,  c1 ],
+        [ 1.0, c1 ], [ 1.0,-c1 ],
+        [ c2, -c1 ], [ c2, -c2 ], [ c1, -c2 ],
+        [ c1, -1.0], [-c1, -1.0],
+        [-c1, -c2 ], [-c2, -c2 ], [-c2, -c1 ],
+        [-1.0,-c1 ], [-1.0, c1 ],
+        [-c2,  c1 ], [-c2,  c2 ], [-c1,  c2 ]
+      ];
+
+      const n = rawPts.length;
+      const positions = [];
+      const uvs = [];
+      const yBot = -height / 2;
+      const yTop = height / 2;
+
+      for (let i = 0; i < n; i++) {
+        const next = (i + 1) % n;
+        const [x0, z0] = rawPts[i];
+        const [x1, z1] = rawPts[next];
+
+        const bx0 = x0 * botHalfW, bz0 = z0 * botHalfW;
+        const bx1 = x1 * botHalfW, bz1 = z1 * botHalfW;
+        const tx0 = x0 * topHalfW, tz0 = z0 * topHalfW;
+        const tx1 = x1 * topHalfW, tz1 = z1 * topHalfW;
+
+        const u0 = i / n;
+        const u1 = (i + 1) / n;
+
+        positions.push(bx0, yBot, bz0,  bx1, yBot, bz1,  tx1, yTop, tz1);
+        uvs.push(u0 * 4, 0,  u1 * 4, 0,  u1 * 4, 1);
+
+        positions.push(bx0, yBot, bz0,  tx1, yTop, tz1,  tx0, yTop, tz0);
+        uvs.push(u0 * 4, 0,  u1 * 4, 1,  u0 * 4, 1);
+      }
+
+      for (let i = 0; i < n; i++) {
+        const next = (i + 1) % n;
+        const [x0, z0] = rawPts[i];
+        const [x1, z1] = rawPts[next];
+
+        positions.push(0, yTop, 0,  x0 * topHalfW, yTop, z0 * topHalfW,  x1 * topHalfW, yTop, z1 * topHalfW);
+        uvs.push(0.5, 0.5,  x0 * 0.5 + 0.5, z0 * 0.5 + 0.5,  x1 * 0.5 + 0.5, z1 * 0.5 + 0.5);
+
+        positions.push(0, yBot, 0,  x1 * botHalfW, yBot, z1 * botHalfW,  x0 * botHalfW, yBot, z0 * botHalfW);
+        uvs.push(0.5, 0.5,  x1 * 0.5 + 0.5, z1 * 0.5 + 0.5,  x0 * 0.5 + 0.5, z0 * 0.5 + 0.5);
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geo.computeVertexNormals();
+      return geo;
+    }
+
+    /**
+     * Slanted 3D structural beam connecting pStart to pEnd along flared curtain walls.
+     */
+    function createSlantedBeamGeometry(pStart, pEnd, thicknessX, thicknessZ) {
+      const dir = new THREE.Vector3().subVectors(pEnd, pStart);
+      const len = dir.length();
+      const geo = new THREE.BoxGeometry(thicknessX, len, thicknessZ);
+      const mid = new THREE.Vector3().addVectors(pStart, pEnd).multiplyScalar(0.5);
+      const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+      geo.applyQuaternion(quat);
+      geo.translate(mid.x, mid.y, mid.z);
+      return geo;
+    }
+
+    /**
+     * Rounded-rectangle extruded building geometry (used for Far-Left Grand Hyatt Hotel).
+     */
+    function createRoundedBoxGeometry(width, height, depth, radius) {
+      const shape = new THREE.Shape();
+      const x = -width / 2;
+      const y = -depth / 2;
+      const r = Math.min(radius, width / 2, depth / 2);
+
+      shape.moveTo(x + r, y);
+      shape.lineTo(x + width - r, y);
+      shape.quadraticCurveTo(x + width, y, x + width, y + r);
+      shape.lineTo(x + width, y + depth - r);
+      shape.quadraticCurveTo(x + width, y + depth, x + width - r, y + depth);
+      shape.lineTo(x + r, y + depth);
+      shape.quadraticCurveTo(x, y + depth, x, y + depth - r);
+      shape.lineTo(x, y + r);
+      shape.quadraticCurveTo(x, y, x + r, y);
+
+      const geo = new THREE.ExtrudeGeometry(shape, {
+        depth: height,
+        bevelEnabled: false,
+        curveSegments: 12
+      });
+      geo.rotateX(-Math.PI / 2);
+      return geo;
+    }
+
+    /**
+     * Traditional Chinese Curved Hip-and-Gable (歇山頂) Green-Tiled Roof Geometry
+     * with concave slopes and upturned flying eaves corners.
+     */
+    function createChineseHipGableRoofGeometry(width, depth, height) {
+      const segX = 28, segZ = 28;
+      const geo = new THREE.PlaneGeometry(width, depth, segX, segZ);
+      geo.rotateX(-Math.PI / 2);
+      const pos = geo.attributes.position;
+
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const z = pos.getZ(i);
+        const nx = Math.abs(x) / (width / 2);
+        const nz = Math.abs(z) / (depth / 2);
+
+        // Main hip-and-gable ridge spine along X
+        const ridgeRatio = 0.42;
+        const effectiveNx = Math.max(0, (nx - ridgeRatio) / (1 - ridgeRatio));
+        const dist = Math.max(effectiveNx, nz);
+
+        // Concave traditional Chinese roof curve + upturned corner eaves
+        const concaveSlope = Math.pow(Math.max(0, 1 - dist), 1.65) * height;
+        const cornerFlare = Math.pow(nx * nz, 2.4) * (height * 0.48);
+        pos.setY(i, concaveSlope + cornerFlare);
+      }
+      geo.computeVertexNormals();
+      return geo;
+    }
+
+    /**
+     * Registers a mesh with PBR shadows, inspector tracking, and crisp Ukiyo-e woodblock ink edges.
+     */
+    function registerMesh(geometry, material, options = {}) {
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.castShadow = options.castShadow !== undefined ? options.castShadow : true;
+      mesh.receiveShadow = options.receiveShadow !== undefined ? options.receiveShadow : true;
+      if (options.position) mesh.position.copy(options.position);
+      if (options.rotation) mesh.rotation.set(options.rotation.x, options.rotation.y, options.rotation.z);
+      if (options.name) mesh.name = options.name;
+
+      pbrMeshes.push({ mesh, originalMaterial: material });
+
+      if (options.inkEdge !== false) {
+        const threshold = options.edgeThreshold || 18;
+        const edgesGeo = new THREE.EdgesGeometry(geometry, threshold);
+        const edgeMat = new THREE.LineBasicMaterial({
+          color: 0x161918,
+          transparent: true,
+          opacity: options.edgeOpacity || 0.65
+        });
+        const lineSegments = new THREE.LineSegments(edgesGeo, edgeMat);
+        lineSegments.userData.isInkEdge = true;
+        mesh.add(lineSegments);
+      }
+
+      return mesh;
+    }
+
+    // =========================================================================
+    // 4. BUILD COMPLETE 3D ARCHITECTURAL SCENE (FAITHFUL TO REFERENCE)
+    // =========================================================================
+    function buildSceneGeometry(textures) {
+      cityExportGroup = new THREE.Group();
+      cityExportGroup.name = 'Taipei101_UkiyoE_Cityscape';
+      scene.add(cityExportGroup);
+
+      // Realistic PBR Material Library
+      const mats = {
+        glass101: new THREE.MeshPhysicalMaterial({
+          map: textures.glassAlbedo,
+          bumpMap: textures.glassBump,
+          bumpScale: 0.09,
+          roughnessMap: textures.glassRough,
+          roughness: 0.22,
+          metalness: 0.35,
+          clearcoat: 0.68,
+          clearcoatRoughness: 0.15,
+          reflectivity: 0.9
+        }),
+        waistRecessMat: new THREE.MeshStandardMaterial({
+          color: 0x14312f,
+          roughness: 0.44,
+          metalness: 0.65
+        }),
+        goldBronze: new THREE.MeshStandardMaterial({
+          color: 0xd8b162,
+          roughness: 0.28,
+          metalness: 0.85
+        }),
+        mullionTealBronze: new THREE.MeshStandardMaterial({
+          color: 0x224d47,
+          roughness: 0.36,
+          metalness: 0.55
+        }),
+        terracottaBrick: new THREE.MeshStandardMaterial({
+          map: textures.brickAlbedo,
+          bumpMap: textures.brickBump,
+          bumpScale: 0.08,
+          roughnessMap: textures.brickRough,
+          roughness: 0.78,
+          metalness: 0.04
+        }),
+        glazedGreenTile: new THREE.MeshPhysicalMaterial({
+          map: textures.tileAlbedo,
+          bumpMap: textures.tileBump,
+          bumpScale: 0.10,
+          roughnessMap: textures.tileRough,
+          roughness: 0.35,
+          metalness: 0.12,
+          clearcoat: 0.45,
+          clearcoatRoughness: 0.22
+        }),
+        washiCreamFacade: new THREE.MeshStandardMaterial({
+          map: textures.wallAlbedo,
+          bumpMap: textures.wallBump,
+          bumpScale: 0.05,
+          roughness: 0.75,
+          metalness: 0.04
+        }),
+        curvedHotelMat: new THREE.MeshStandardMaterial({
+          map: textures.hotelAlbedo,
+          bumpMap: textures.hotelBump,
+          bumpScale: 0.06,
+          roughness: 0.68,
+          metalness: 0.08
+        }),
+        crispWhiteTower: new THREE.MeshPhysicalMaterial({
+          color: 0xf7f2e7,
+          bumpMap: textures.wallBump,
+          bumpScale: 0.03,
+          roughness: 0.32,
+          metalness: 0.14,
+          clearcoat: 0.32
+        }),
+        slateBlueGlass: new THREE.MeshPhysicalMaterial({
+          color: 0x3b586b,
+          bumpMap: textures.glassBump,
+          bumpScale: 0.05,
+          roughness: 0.24,
+          metalness: 0.56,
+          clearcoat: 0.5
+        }),
+        steppedBrownTower: new THREE.MeshStandardMaterial({
+          color: 0x9e5942,
+          bumpMap: textures.wallBump,
+          bumpScale: 0.05,
+          roughness: 0.68,
+          metalness: 0.08
+        }),
+        creamStone: new THREE.MeshStandardMaterial({
+          color: 0xebe0c9,
+          roughness: 0.65,
+          metalness: 0.05
+        }),
+        parkTurf: new THREE.MeshStandardMaterial({
+          color: 0x4b8750,
+          roughness: 0.88,
+          metalness: 0.0
+        }),
+        roadAsphalt: new THREE.MeshStandardMaterial({
+          color: 0x566268,
+          roughness: 0.82,
+          metalness: 0.05
+        }),
+        darkSlateTile: new THREE.MeshStandardMaterial({
+          color: 0x26373f,
+          roughness: 0.60,
+          metalness: 0.16
+        })
+      };
+
+      // -----------------------------------------------------------------------
+      // A. BASE GROUND PLANE & XINYI AVENUE NETWORK
+      // -----------------------------------------------------------------------
+      const groundMat = new THREE.MeshStandardMaterial({
+        map: textures.groundAlbedo,
+        roughness: 0.9,
+        metalness: 0.0
+      });
+      const ground = registerMesh(
+        new THREE.BoxGeometry(260, 2, 260),
+        groundMat,
+        { position: new THREE.Vector3(0, -1, 0), inkEdge: false, name: 'Washi_Ground_Base' }
+      );
+      cityExportGroup.add(ground);
+
+      // Diagonal Foreground Avenue (Xinyi Rd / Keelung Rd) & Cross Streets matching print perspective
+      const roadSpecs = [
+        { x: 4, z: 36, w: 195, d: 6.2, rotY: 0.32 },     // Foreground avenue in front of red complex & 101
+        { x: -16, z: 12, w: 170, d: 4.8, rotY: -0.26 },   // Cross avenue between red complex & green lawn
+        { x: -14, z: -16, w: 185, d: 4.5, rotY: -0.22 },  // Mid-ground avenue behind white tower
+        { x: 6, z: 6, w: 4.8, d: 165, rotY: -0.24 },      // North-South avenue west of 101 podium
+        { x: 35, z: 8, w: 4.5, d: 155, rotY: -0.24 }      // Avenue east of Taipei 101
+      ];
+
+      roadSpecs.forEach((r, idx) => {
+        const road = registerMesh(
+          new THREE.BoxGeometry(r.w, 0.16, r.d),
+          mats.roadAsphalt,
+          {
+            position: new THREE.Vector3(r.x, 0.08, r.z),
+            rotation: { x: 0, y: r.rotY, z: 0 },
+            edgeOpacity: 0.42,
+            name: `Xinyi_Avenue_${idx}`
+          }
+        );
+        cityExportGroup.add(road);
+
+        // Dashed/continuous cream lane divider line
+        const isHorizontal = r.w > r.d;
+        const stripeGeo = new THREE.BoxGeometry(isHorizontal ? r.w * 0.96 : 0.24, 0.18, isHorizontal ? 0.24 : r.d * 0.96);
+        const stripe = registerMesh(
+          stripeGeo,
+          mats.creamStone,
+          {
+            position: new THREE.Vector3(r.x, 0.09, r.z),
+            rotation: { x: 0, y: r.rotY, z: 0 },
+            inkEdge: false
+          }
+        );
+        cityExportGroup.add(stripe);
+      });
+
+      // -----------------------------------------------------------------------
+      // B. TAIPEI 101 TOWER — HIGH-PRECISION 8-TIER BAMBOO ARCHITECTURE
+      // -----------------------------------------------------------------------
+      const taipei101Group = new THREE.Group();
+      taipei101Group.name = 'Taipei_101_Tower_And_Podium';
+      taipei101Group.position.set(19, 0, -3);
+      taipei101Group.rotation.y = -0.18;
+      cityExportGroup.add(taipei101Group);
+
+      // 1. Inward-Tapering Trapezoidal Base (斜收基座: Floors 1 - 26)
+      const baseHeight = 25.0;
+      const baseBotHalfW = 8.6;
+      const baseTopHalfW = 6.1;
+      const baseGeo = createChamferedPrismGeometry(baseBotHalfW, baseTopHalfW, baseHeight);
+      const baseMesh = registerMesh(baseGeo, mats.glass101, {
+        position: new THREE.Vector3(0, baseHeight / 2, 0),
+        edgeThreshold: 15,
+        name: 'Taipei101_Tapered_Base'
+      });
+      taipei101Group.add(baseMesh);
+
+      // Gold-trimmed horizontal belt courses & slanted structural mega-columns on the base
+      [7.8, 15.6, 22.8].forEach((bandY) => {
+        const t = bandY / baseHeight;
+        const hw = baseBotHalfW + (baseTopHalfW - baseBotHalfW) * t + 0.16;
+        const bandGeo = createChamferedPrismGeometry(hw, hw, 0.42);
+        const bandMesh = registerMesh(bandGeo, mats.goldBronze, {
+          position: new THREE.Vector3(0, bandY, 0),
+          edgeThreshold: 22
+        });
+        taipei101Group.add(bandMesh);
+      });
+
+      const signPairs = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+      signPairs.forEach(([sx, sz]) => {
+        const col1 = createSlantedBeamGeometry(
+          new THREE.Vector3(sx * baseBotHalfW * 0.44, 0, sz * (baseBotHalfW + 0.14)),
+          new THREE.Vector3(sx * baseTopHalfW * 0.44, baseHeight, sz * (baseTopHalfW + 0.14)),
+          0.56, 0.36
+        );
+        const col2 = createSlantedBeamGeometry(
+          new THREE.Vector3(sx * (baseBotHalfW + 0.14), 0, sz * baseBotHalfW * 0.44),
+          new THREE.Vector3(sx * (baseTopHalfW + 0.14), baseHeight, sz * baseTopHalfW * 0.44),
+          0.36, 0.56
+        );
+        taipei101Group.add(
+          registerMesh(col1, mats.mullionTealBronze, { edgeThreshold: 25 }),
+          registerMesh(col2, mats.mullionTealBronze, { edgeThreshold: 25 })
+        );
+      });
+
+      // 2. Four Giant 3D Bronze-Gold Ancient Coin Medallions (古錢幣浮雕)
+      const coinY = baseHeight - 2.3;
+      const coinHalfW = baseBotHalfW + (baseTopHalfW - baseBotHalfW) * (coinY / baseHeight);
+      const coinConfigs = [
+        { pos: [0, coinY, coinHalfW + 0.22], rot: [Math.PI / 2, 0, 0] },
+        { pos: [0, coinY, -(coinHalfW + 0.22)], rot: [-Math.PI / 2, 0, 0] },
+        { pos: [coinHalfW + 0.22, coinY, 0], rot: [0, 0, -Math.PI / 2] },
+        { pos: [-(coinHalfW + 0.22), coinY, 0], rot: [0, 0, Math.PI / 2] }
+      ];
+      coinConfigs.forEach((cc, idx) => {
+        const coinGroup = new THREE.Group();
+        coinGroup.name = `Taipei101_AncientCoin_${idx + 1}`;
+        coinGroup.position.set(...cc.pos);
+        coinGroup.rotation.set(...cc.rot);
+
+        const outerRim = registerMesh(
+          new THREE.TorusGeometry(1.85, 0.26, 12, 32),
+          mats.goldBronze,
+          { rotation: { x: Math.PI / 2, y: 0, z: 0 }, edgeThreshold: 38 }
+        );
+        const coinDisc = registerMesh(
+          new THREE.CylinderGeometry(1.82, 1.82, 0.30, 32),
+          mats.goldBronze,
+          { edgeThreshold: 38 }
+        );
+        const squareRim = registerMesh(
+          new THREE.BoxGeometry(1.24, 0.40, 1.24),
+          mats.goldBronze,
+          { edgeThreshold: 25 }
+        );
+        const squareHole = registerMesh(
+          new THREE.BoxGeometry(0.80, 0.46, 0.80),
+          mats.waistRecessMat,
+          { edgeThreshold: 25 }
+        );
+
+        coinGroup.add(outerRim, coinDisc, squareRim, squareHole);
+        taipei101Group.add(coinGroup);
+      });
+
+      // 3. Eight Pronounced Outward-Flaring Bamboo Modules (上寬下窄八節竹節結構)
+      const numModules = 8;
+      const neckHeight = 0.88;    // Recessed dark-teal mechanical/refuge waist
+      const bodyHeight = 5.65;    // Outward-flaring glass module body (~8.5 deg tilt)
+      const eavesHeight = 0.56;   // Double-stepped bronze-gold cornice eaves
+      const moduleTotalH = neckHeight + bodyHeight + eavesHeight;
+
+      let curY = baseHeight;
+
+      // Sculpted 3D Golden Ruyi Cloud Bracket (如意雲紋飾件)
+      function createCornerRuyiBracket(cornerX, cornerY, cornerZ, signX, signZ) {
+        const ruyiGroup = new THREE.Group();
+        ruyiGroup.position.set(cornerX, cornerY, cornerZ);
+        ruyiGroup.rotation.y = Math.atan2(signX, signZ);
+
+        const shield = registerMesh(
+          new THREE.BoxGeometry(1.20, 1.32, 0.44),
+          mats.goldBronze,
+          { edgeThreshold: 25 }
+        );
+        const leftVolute = registerMesh(
+          new THREE.TorusGeometry(0.48, 0.17, 10, 18),
+          mats.goldBronze,
+          { position: new THREE.Vector3(-0.58, 0.14, 0.14), edgeThreshold: 40 }
+        );
+        const rightVolute = registerMesh(
+          new THREE.TorusGeometry(0.48, 0.17, 10, 18),
+          mats.goldBronze,
+          { position: new THREE.Vector3(0.58, 0.14, 0.14), edgeThreshold: 40 }
+        );
+        const finial = registerMesh(
+          new THREE.ConeGeometry(0.36, 0.78, 6),
+          mats.goldBronze,
+          {
+            position: new THREE.Vector3(0, -0.82, 0.08),
+            rotation: { x: Math.PI, y: 0, z: 0 },
+            edgeThreshold: 30
+          }
+        );
+
+        ruyiGroup.add(shield, leftVolute, rightVolute, finial);
+        return ruyiGroup;
+      }
+
+      for (let m = 0; m < numModules; m++) {
+        const moduleGroup = new THREE.Group();
+        moduleGroup.name = `Taipei101_Bamboo_Module_${m + 1}`;
+        taipei101Group.add(moduleGroup);
+
+        const globalScale = 1 - m * 0.011;
+        const neckHalfW = 4.72 * globalScale;
+        const modBotHalfW = 5.12 * globalScale; // Narrow bottom (下窄)
+        const modTopHalfW = 6.46 * globalScale; // Wide flared top (上寬 ~8.6° flare)
+
+        // (a) Recessed Dark-Teal Mechanical Waist (receives deep PBR self-shadow from above)
+        const neckGeo = createChamferedPrismGeometry(neckHalfW, neckHalfW * 1.02, neckHeight);
+        const neckMesh = registerMesh(neckGeo, mats.waistRecessMat, {
+          position: new THREE.Vector3(0, curY + neckHeight / 2, 0),
+          edgeThreshold: 20,
+          name: `Module_${m + 1}_MechanicalWaist`
+        });
+        moduleGroup.add(neckMesh);
+
+        // (b) Outward-Flaring Chamfered Bamboo Module Body
+        const bodyYCenter = curY + neckHeight + bodyHeight / 2;
+        const bodyGeo = createChamferedPrismGeometry(modBotHalfW, modTopHalfW, bodyHeight);
+        const bodyMesh = registerMesh(bodyGeo, mats.glass101, {
+          position: new THREE.Vector3(0, bodyYCenter, 0),
+          edgeThreshold: 14,
+          edgeOpacity: 0.74,
+          name: `Module_${m + 1}_FlaredBody`
+        });
+        moduleGroup.add(bodyMesh);
+
+        // (c) Slanted Vertical Structural Mullions matching the exact outward flare
+        const y0 = curY + neckHeight;
+        const y1 = y0 + bodyHeight;
+        const offsets = [-0.46, 0, 0.46];
+
+        offsets.forEach((frac) => {
+          [1, -1].forEach((sz) => {
+            const mullionGeo = createSlantedBeamGeometry(
+              new THREE.Vector3(frac * modBotHalfW, y0, sz * (modBotHalfW + 0.09)),
+              new THREE.Vector3(frac * modTopHalfW, y1, sz * (modTopHalfW + 0.09)),
+              0.25, 0.24
+            );
+            moduleGroup.add(registerMesh(mullionGeo, mats.mullionTealBronze, { edgeThreshold: 25 }));
+          });
+
+          [1, -1].forEach((sx) => {
+            const mullionGeo = createSlantedBeamGeometry(
+              new THREE.Vector3(sx * (modBotHalfW + 0.09), y0, frac * modBotHalfW),
+              new THREE.Vector3(sx * (modTopHalfW + 0.09), y1, frac * modTopHalfW),
+              0.24, 0.25
+            );
+            moduleGroup.add(registerMesh(mullionGeo, mats.mullionTealBronze, { edgeThreshold: 25 }));
+          });
+        });
+
+        // (d) Double-Stepped Bronze-Gold Cornice Eaves Trim
+        const eavesLower = createChamferedPrismGeometry(modTopHalfW + 0.14, modTopHalfW + 0.26, eavesHeight * 0.55);
+        const eavesUpper = createChamferedPrismGeometry(modTopHalfW + 0.26, modTopHalfW + 0.38, eavesHeight * 0.45);
+        moduleGroup.add(
+          registerMesh(eavesLower, mats.goldBronze, {
+            position: new THREE.Vector3(0, y1 + eavesHeight * 0.275, 0),
+            edgeThreshold: 16,
+            edgeOpacity: 0.76
+          }),
+          registerMesh(eavesUpper, mats.goldBronze, {
+            position: new THREE.Vector3(0, y1 + eavesHeight * 0.775, 0),
+            edgeThreshold: 16,
+            edgeOpacity: 0.76,
+            name: `Module_${m + 1}_CorniceEaves`
+          })
+        );
+
+        // (e) Ornate Upturned Golden Ruyi Cloud Brackets at all 4 Corners
+        signPairs.forEach(([sx, sz]) => {
+          const ruyi = createCornerRuyiBracket(
+            sx * (modTopHalfW * 0.91),
+            y1 - 0.56,
+            sz * (modTopHalfW * 0.91),
+            sx,
+            sz
+          );
+          moduleGroup.add(ruyi);
+        });
+
+        curY += moduleTotalH;
+      }
+
+      // 4. Stepped Pagoda Crown, Observatory Decks & Slender Spire
+      const crownGroup = new THREE.Group();
+      crownGroup.name = 'Taipei101_Crown_And_Spire';
+      taipei101Group.add(crownGroup);
+
+      const crownTiers = [
+        { botW: 4.4, topW: 4.6, h: 2.3, mat: mats.waistRecessMat },
+        { botW: 3.4, topW: 3.8, h: 3.3, mat: mats.glass101 },
+        { botW: 4.0, topW: 4.1, h: 0.52, mat: mats.goldBronze },
+        { botW: 2.4, topW: 2.7, h: 2.8, mat: mats.glass101 },
+        { botW: 2.9, topW: 3.0, h: 0.48, mat: mats.goldBronze },
+        { botW: 1.45, topW: 1.55, h: 2.3, mat: mats.mullionTealBronze }
+      ];
+
+      crownTiers.forEach((ct, i) => {
+        const cGeo = createChamferedPrismGeometry(ct.botW, ct.topW, ct.h);
+        const cMesh = registerMesh(cGeo, ct.mat, {
+          position: new THREE.Vector3(0, curY + ct.h / 2, 0),
+          edgeThreshold: 18,
+          name: `Taipei101_CrownTier_${i + 1}`
+        });
+        crownGroup.add(cMesh);
+        curY += ct.h;
+      });
+
+      const spireBase = registerMesh(
+        new THREE.CylinderGeometry(0.46, 0.75, 5.0, 12),
+        mats.crispWhiteTower,
+        { position: new THREE.Vector3(0, curY + 2.5, 0), name: 'Taipei101_Spire_Base' }
+      );
+      const spireCollar = registerMesh(
+        new THREE.CylinderGeometry(0.65, 0.65, 0.48, 12),
+        mats.goldBronze,
+        { position: new THREE.Vector3(0, curY + 5.1, 0) }
+      );
+      const spireNeedle = registerMesh(
+        new THREE.CylinderGeometry(0.11, 0.38, 7.8, 12),
+        mats.crispWhiteTower,
+        { position: new THREE.Vector3(0, curY + 9.2, 0), name: 'Taipei101_Spire_Needle' }
+      );
+      crownGroup.add(spireBase, spireCollar, spireNeedle);
+
+      // 5. Taipei 101 Shopping Mall Podium & Multi-Tiered Crescent Stepped Glass Atrium Roof
+      const podiumGroup = new THREE.Group();
+      podiumGroup.name = 'Taipei101_Mall_Podium';
+      podiumGroup.position.set(-14.2, 0, 3.0);
+      taipei101Group.add(podiumGroup);
+
+      // Teal-green stone and glass rectangular podium
+      const podiumMain = registerMesh(
+        new THREE.BoxGeometry(17.8, 7.6, 19.2),
+        mats.glass101,
+        { position: new THREE.Vector3(0, 3.8, 0), name: 'Mall_Main_Podium' }
+      );
+      const podiumCornice = registerMesh(
+        new THREE.BoxGeometry(18.5, 0.72, 19.9),
+        mats.creamStone,
+        { position: new THREE.Vector3(0, 7.6, 0) }
+      );
+      podiumGroup.add(podiumMain, podiumCornice);
+
+      // Ground-level colonnade arches along podium front facade
+      for (let c = -6.5; c <= 6.5; c += 2.6) {
+        const colPillar = registerMesh(
+          new THREE.BoxGeometry(0.65, 3.2, 0.8),
+          mats.creamStone,
+          { position: new THREE.Vector3(c, 1.6, 9.7) }
+        );
+        podiumGroup.add(colPillar);
+      }
+
+      // Roof terrace green planters
+      const podiumTurf = registerMesh(
+        new THREE.BoxGeometry(14.5, 0.35, 5.2),
+        mats.parkTurf,
+        { position: new THREE.Vector3(-0.8, 8.05, 5.8) }
+      );
+      podiumGroup.add(podiumTurf);
+
+      // Multi-tiered curved crescent/elliptical stepped glass atrium roof (弧形階梯採光罩)
+      for (let i = 0; i < 7; i++) {
+        const arcW = 14.8 - i * 1.15;
+        const arcD = 12.2 - i * 0.92;
+        const arcRoof = registerMesh(
+          new THREE.CylinderGeometry(arcW * 0.5, arcW * 0.52, 0.54, 28, 1, false, 0, Math.PI),
+          i % 2 === 0 ? mats.creamStone : mats.mullionTealBronze,
+          {
+            position: new THREE.Vector3(0.6, 8.0 + i * 0.52, -2.6),
+            rotation: { x: 0, y: Math.PI / 2, z: 0 },
+            edgeThreshold: 26,
+            name: `Crescent_Atrium_Tier_${i + 1}`
+          }
+        );
+        arcRoof.scale.set(1, 1, arcD / arcW);
+        podiumGroup.add(arcRoof);
+      }
+
+      // -----------------------------------------------------------------------
+      // C. BOTTOM-LEFT FOREGROUND: RED-BRICK TERRACED COMPLEX & GREEN PAVILION
+      // -----------------------------------------------------------------------
+      const redComplexGroup = new THREE.Group();
+      redComplexGroup.name = 'Red_Brick_Terraced_Pavilion_Complex';
+      redComplexGroup.position.set(-19, 0, 26);
+      redComplexGroup.rotation.y = 0.30;
+      cityExportGroup.add(redComplexGroup);
+
+      // Multi-level stepped red-brick ziggurat with interlocking cubic setbacks & green tile cornices
+      const zigguratLevels = 6;
+      for (let lvl = 0; lvl < zigguratLevels; lvl++) {
+        const w = 29.0 - lvl * 3.2;
+        const d = 24.5 - lvl * 2.8;
+        const h = 1.95;
+        const yPos = lvl * h + h / 2;
+
+        const brickBlock = registerMesh(
+          new THREE.BoxGeometry(w, h, d),
+          mats.terracottaBrick,
+          { position: new THREE.Vector3(0, yPos, 0), name: `RedZiggurat_Level_${lvl + 1}` }
+        );
+        const greenTileCornice = registerMesh(
+          new THREE.BoxGeometry(w + 0.42, 0.30, d + 0.42),
+          mats.glazedGreenTile,
+          { position: new THREE.Vector3(0, lvl * h + h + 0.12, 0) }
+        );
+        redComplexGroup.add(brickBlock, greenTileCornice);
+
+        // Interlocking cubic setbacks & corner stepped towers
+        const setbacks = [
+          [-w * 0.46, -d * 0.46],
+          [ w * 0.46, -d * 0.46],
+          [ w * 0.46,  d * 0.46],
+          [-w * 0.46,  d * 0.46],
+          [0, d * 0.48],
+          [-w * 0.48, 0]
+        ];
+        setbacks.forEach(([sx, sz]) => {
+          const towerBlock = registerMesh(
+            new THREE.BoxGeometry(2.8, h + 0.65, 2.8),
+            mats.terracottaBrick,
+            { position: new THREE.Vector3(sx, yPos + 0.28, sz) }
+          );
+          const towerRoofCap = registerMesh(
+            new THREE.BoxGeometry(3.1, 0.28, 3.1),
+            mats.glazedGreenTile,
+            { position: new THREE.Vector3(sx, yPos + h / 2 + 0.72, sz) }
+          );
+          redComplexGroup.add(towerBlock, towerRoofCap);
+        });
+      }
+
+      // Small rooftop green turf courtyards on the lower-left and lower-right terraces
+      const leftTerraceTurf = registerMesh(
+        new THREE.BoxGeometry(4.4, 0.25, 3.8),
+        mats.parkTurf,
+        { position: new THREE.Vector3(-11.8, 2.25, 8.8) }
+      );
+      const rightTerraceTurf = registerMesh(
+        new THREE.BoxGeometry(4.2, 0.25, 3.6),
+        mats.parkTurf,
+        { position: new THREE.Vector3(11.6, 2.25, 8.6) }
+      );
+      redComplexGroup.add(leftTerraceTurf, rightTerraceTurf);
+
+      // Grand Traditional Chinese Curved Hip-and-Gable Green-Tiled Pavilion Roof (歇山頂飛簷綠瓦大殿)
+      const pavilionBaseY = zigguratLevels * 1.95;
+      const pavilionHall = registerMesh(
+        new THREE.BoxGeometry(11.6, 2.4, 9.2),
+        mats.terracottaBrick,
+        { position: new THREE.Vector3(0, pavilionBaseY + 1.2, 0) }
+      );
+      const pavilionRoof = registerMesh(
+        createChineseHipGableRoofGeometry(15.2, 12.6, 4.1),
+        mats.glazedGreenTile,
+        {
+          position: new THREE.Vector3(0, pavilionBaseY + 2.3, 0),
+          edgeThreshold: 28,
+          name: 'Grand_Chinese_Green_Pavilion_Roof'
+        }
+      );
+      const mainRidgeOrnament = registerMesh(
+        new THREE.BoxGeometry(5.8, 0.42, 0.52),
+        mats.goldBronze,
+        { position: new THREE.Vector3(0, pavilionBaseY + 6.45, 0) }
+      );
+      redComplexGroup.add(pavilionHall, pavilionRoof, mainRidgeOrnament);
+
+      // Iconic White Zig-Zag Elevated Pedestrian Skybridge (白色之字形高架天橋)
+      const bridgeGroup = new THREE.Group();
+      bridgeGroup.name = 'White_ZigZag_Skybridge';
+      cityExportGroup.add(bridgeGroup);
+
+      const bridgeSeg1 = registerMesh(
+        new THREE.BoxGeometry(8.5, 1.4, 1.9),
+        mats.crispWhiteTower,
+        { position: new THREE.Vector3(-8.2, 6.8, 17.5), rotation: { x: 0, y: 0.30, z: 0 } }
+      );
+      const bridgeSeg2 = registerMesh(
+        new THREE.BoxGeometry(1.9, 1.4, 7.6),
+        mats.crispWhiteTower,
+        { position: new THREE.Vector3(-3.8, 6.8, 13.8), rotation: { x: 0, y: 0.30, z: 0 } }
+      );
+      const bridgeSeg3 = registerMesh(
+        new THREE.BoxGeometry(7.8, 1.4, 1.9),
+        mats.crispWhiteTower,
+        { position: new THREE.Vector3(0.4, 6.8, 10.2), rotation: { x: 0, y: 0.30, z: 0 } }
+      );
+      // Support piers under the skybridge
+      [[-6.5, 16.5], [-3.8, 13.8], [-1.2, 11.2]].forEach(([px, pz]) => {
+        const pier = registerMesh(
+          new THREE.BoxGeometry(0.85, 6.2, 0.85),
+          mats.creamStone,
+          { position: new THREE.Vector3(px, 3.1, pz) }
+        );
+        bridgeGroup.add(pier);
+      });
+      bridgeGroup.add(bridgeSeg1, bridgeSeg2, bridgeSeg3);
+
+      // -----------------------------------------------------------------------
+      // D. SURROUNDING XINYI DISTRICT LANDMARK BUILDINGS & PLAZAS
+      // -----------------------------------------------------------------------
+      const districtGroup = new THREE.Group();
+      districtGroup.name = 'Xinyi_Surrounding_Landmarks';
+      cityExportGroup.add(districtGroup);
+
+      // 1. Far-Left Curved Terracotta Hotel (Grand Hyatt Silhouette with Dense Horizontal Windows)
+      const curvedHotelGeo = createRoundedBoxGeometry(15.5, 17.5, 10.5, 2.4);
+      const curvedHotel = registerMesh(
+        curvedHotelGeo,
+        mats.curvedHotelMat,
+        { position: new THREE.Vector3(-42, 0, 14), rotation: { x: 0, y: 0.30, z: 0 }, name: 'FarLeft_Curved_Hotel' }
+      );
+      const hotelPenthouse = registerMesh(
+        createRoundedBoxGeometry(11.0, 1.8, 6.5, 1.2),
+        mats.creamStone,
+        { position: new THREE.Vector3(-42, 17.5, 14), rotation: { x: 0, y: 0.30, z: 0 } }
+      );
+      districtGroup.add(curvedHotel, hotelPenthouse);
+
+      // 2. Green Rectangular Turf Field (綠色運動草坪) behind skybridge & left of 101 crescent roof
+      const lawnGroup = new THREE.Group();
+      lawnGroup.position.set(-21, 0, 4.5);
+      lawnGroup.rotation.y = -0.24;
+      districtGroup.add(lawnGroup);
+
+      const lawnPerimeter = registerMesh(
+        new THREE.BoxGeometry(20.5, 0.30, 13.8),
+        mats.creamStone,
+        { position: new THREE.Vector3(0, 0.15, 0) }
+      );
+      const lawnTurf = registerMesh(
+        new THREE.BoxGeometry(18.8, 0.38, 12.0),
+        mats.parkTurf,
+        { position: new THREE.Vector3(0, 0.19, 0), name: 'Green_Rectangular_Turf_Field' }
+      );
+      const lawnPavilion = registerMesh(
+        new THREE.BoxGeometry(4.2, 1.6, 2.4),
+        mats.washiCreamFacade,
+        { position: new THREE.Vector3(-6.8, 0.9, -4.2) }
+      );
+      lawnGroup.add(lawnPerimeter, lawnTurf, lawnPavilion);
+
+      // 3. White Vertical-Ribbed Tower with Curved Arched Roofline & Recessed Dark Window Bay (白色弧頂大樓)
+      const whiteTowerGroup = new THREE.Group();
+      whiteTowerGroup.name = 'White_CurvedTop_Tower';
+      whiteTowerGroup.position.set(-10, 0, -13);
+      whiteTowerGroup.rotation.y = -0.22;
+      districtGroup.add(whiteTowerGroup);
+
+      const whiteTowerBody = registerMesh(
+        new THREE.BoxGeometry(8.8, 20.5, 7.6),
+        mats.crispWhiteTower,
+        { position: new THREE.Vector3(0, 10.25, 0) }
+      );
+      const whiteArchedCrown = registerMesh(
+        new THREE.CylinderGeometry(3.8, 3.8, 8.8, 20, 1, false, 0, Math.PI),
+        mats.crispWhiteTower,
+        {
+          position: new THREE.Vector3(0, 20.5, 0),
+          rotation: { x: 0, y: 0, z: Math.PI / 2 },
+          edgeThreshold: 34
+        }
+      );
+      // Dark recessed window bay on the right flank
+      const rightDarkBay = registerMesh(
+        new THREE.BoxGeometry(1.4, 17.5, 4.6),
+        mats.slateBlueGlass,
+        { position: new THREE.Vector3(4.3, 9.5, 0) }
+      );
+      whiteTowerGroup.add(whiteTowerBody, whiteArchedCrown, rightDarkBay);
+
+      // Vertical window fins along the front face of the white tower
+      for (let fx = -3.6; fx <= 3.6; fx += 0.9) {
+        const fin = registerMesh(
+          new THREE.BoxGeometry(0.18, 19.5, 0.35),
+          mats.creamStone,
+          { position: new THREE.Vector3(fx, 10.0, 3.85), inkEdge: false }
+        );
+        whiteTowerGroup.add(fin);
+      }
+
+      // 4. Mid-Ground Skyscrapers & Office Blocks (matching reference colors & silhouettes)
+      // Dark slate-blue glass box tower
+      const slateBlueTower = registerMesh(
+        new THREE.BoxGeometry(10.8, 22.0, 8.8),
+        mats.slateBlueGlass,
+        { position: new THREE.Vector3(-21, 11.0, -29), rotation: { x: 0, y: -0.22, z: 0 }, name: 'SlateBlue_Glass_Tower' }
+      );
+      districtGroup.add(slateBlueTower);
+
+      // Reddish-brown stepped corporate tower topped with a small teal dome
+      const steppedTowerGroup = new THREE.Group();
+      steppedTowerGroup.position.set(-4, 0, -32);
+      steppedTowerGroup.rotation.y = -0.22;
+      districtGroup.add(steppedTowerGroup);
+
+      steppedTowerGroup.add(
+        registerMesh(new THREE.BoxGeometry(10.5, 16.0, 9.5), mats.steppedBrownTower, { position: new THREE.Vector3(0, 8.0, 0) }),
+        registerMesh(new THREE.BoxGeometry(7.8, 6.5, 7.2), mats.steppedBrownTower, { position: new THREE.Vector3(0, 19.25, 0) }),
+        registerMesh(new THREE.SphereGeometry(2.4, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), mats.glass101, {
+          position: new THREE.Vector3(0, 22.5, 0),
+          edgeThreshold: 36,
+          name: 'Stepped_Tower_Teal_Dome'
+        })
+      );
+
+      // Cream/ochre L-shaped & courtyard office buildings
+      const officeBlocks = [
+        { x: -43, z: -4, w: 12.5, h: 12.0, d: 11.5, mat: mats.washiCreamFacade, name: 'West_Courtyard_Office' },
+        { x: -32, z: -21, w: 11.5, h: 13.0, d: 8.8, mat: mats.terracottaBrick, name: 'MidWest_Brick_Office' },
+        { x: 6, z: -25, w: 9.2, h: 15.5, d: 7.8, mat: mats.washiCreamFacade, name: 'MidEast_Ochre_Office' },
+        { x: 39, z: -12, w: 12.0, h: 14.0, d: 9.5, mat: mats.washiCreamFacade, name: 'East_Ochre_Complex' },
+        { x: 48, z: 7, w: 12.5, h: 12.0, d: 10.5, mat: mats.terracottaBrick, name: 'FarEast_Terracotta_Complex' }
+      ];
+      officeBlocks.forEach((b) => {
+        districtGroup.add(
+          registerMesh(
+            new THREE.BoxGeometry(b.w, b.h, b.d),
+            b.mat,
+            { position: new THREE.Vector3(b.x, b.h / 2, b.z), rotation: { x: 0, y: -0.22, z: 0 }, name: b.name }
+          )
+        );
+      });
+
+      // 5. Right-Side Circular Landscaped Plaza (圓形環狀公園)
+      const plazaGroup = new THREE.Group();
+      plazaGroup.name = 'Circular_Landscaped_Plaza';
+      plazaGroup.position.set(32, 0, 12);
+      districtGroup.add(plazaGroup);
+
+      const plazaBase = registerMesh(
+        new THREE.CylinderGeometry(7.8, 7.8, 0.26, 32),
+        mats.parkTurf,
+        { position: new THREE.Vector3(0, 0.13, 0) }
+      );
+      const outerWalkway = registerMesh(
+        new THREE.RingGeometry(5.6, 6.8, 32),
+        mats.creamStone,
+        { position: new THREE.Vector3(0, 0.28, 0), rotation: { x: -Math.PI / 2, y: 0, z: 0 }, inkEdge: false }
+      );
+      const innerWalkway = registerMesh(
+        new THREE.RingGeometry(2.2, 3.2, 32),
+        mats.creamStone,
+        { position: new THREE.Vector3(0, 0.28, 0), rotation: { x: -Math.PI / 2, y: 0, z: 0 }, inkEdge: false }
+      );
+      plazaGroup.add(plazaBase, outerWalkway, innerWalkway);
+
+      // White radial pathways intersecting the circular park
+      [0, Math.PI / 2].forEach((rot) => {
+        const radialPath = registerMesh(
+          new THREE.BoxGeometry(15.4, 0.29, 0.9),
+          mats.creamStone,
+          { position: new THREE.Vector3(0, 0.15, 0), rotation: { x: 0, y: rot, z: 0 }, inkEdge: false }
+        );
+        plazaGroup.add(radialPath);
+      });
+
+      // 6. Bottom-Right Warm Ivory-Cream Apartment Towers & Traditional Dark-Tiled Townhouses
+      const fgCreamTowers = [
+        { x: 18, z: 34, w: 6.4, h: 18.0, d: 6.2, mat: mats.washiCreamFacade },
+        { x: 26, z: 39, w: 6.6, h: 15.5, d: 6.0, mat: mats.creamStone },
+        { x: 35, z: 33, w: 7.2, h: 16.5, d: 6.6, mat: mats.washiCreamFacade },
+        { x: 44, z: 25, w: 8.8, h: 14.5, d: 7.6, mat: mats.creamStone }
+      ];
+      fgCreamTowers.forEach((t, i) => {
+        districtGroup.add(
+          registerMesh(
+            new THREE.BoxGeometry(t.w, t.h, t.d),
+            t.mat,
+            { position: new THREE.Vector3(t.x, t.h / 2, t.z), rotation: { x: 0, y: 0.32, z: 0 }, name: `BottomRight_CreamTower_${i + 1}` }
+          )
+        );
+      });
+
+      // Row of traditional dark-tiled wooden townhouses (日式/台式黑瓦町家建築) along bottom-right edge
+      for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 5; col++) {
+          const lx = 2 + col * 5.0 - row * 1.4;
+          const lz = 44 + row * 4.2 + col * 1.45;
+          const townhouseBody = registerMesh(
+            new THREE.BoxGeometry(4.4, 2.3, 3.4),
+            mats.washiCreamFacade,
+            { position: new THREE.Vector3(lx, 1.15, lz), rotation: { x: 0, y: 0.32, z: 0 } }
+          );
+          const pitchedRoof = registerMesh(
+            new THREE.ConeGeometry(3.3, 1.55, 4),
+            mats.darkSlateTile,
+            {
+              position: new THREE.Vector3(lx, 3.05, lz),
+              rotation: { x: 0, y: Math.PI / 4 + 0.32, z: 0 },
+              name: `Traditional_Townhouse_${row}_${col}`
+            }
+          );
+          districtGroup.add(townhouseBody, pitchedRoof);
+        }
+      }
+
+      // Deterministic Background Urban Blocks
+      const blockPalette = [mats.washiCreamFacade, mats.creamStone, mats.terracottaBrick, mats.slateBlueGlass, mats.darkSlateTile];
+      let seed = 101;
+      const rand = () => {
+        seed = (seed * 16807) % 2147483647;
+        return (seed - 1) / 2147483646;
+      };
+
+      for (let gx = -76; gx <= 76; gx += 7.4) {
+        for (let gz = -72; gz <= -35; gz += 7.0) {
+          if (Math.abs(gx - 19) < 13 && Math.abs(gz + 3) < 13) continue;
+          const w = 3.5 + rand() * 3.1;
+          const d = 3.5 + rand() * 3.1;
+          const h = 3.0 + rand() * 8.8;
+          const mat = blockPalette[Math.floor(rand() * blockPalette.length)];
+          districtGroup.add(
+            registerMesh(
+              new THREE.BoxGeometry(w, h, d),
+              mat,
+              {
+                position: new THREE.Vector3(gx + (rand() - 0.5) * 1.8, h / 2, gz + (rand() - 0.5) * 1.8),
+                rotation: { x: 0, y: -0.22, z: 0 },
+                edgeOpacity: 0.42
+              }
+            )
+          );
+        }
+      }
+
+      // Street Trees & Stylized Miniature Buses and Cars
+      const foliageMat = new THREE.MeshStandardMaterial({ color: 0x386641, roughness: 0.85 });
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3525, roughness: 0.9 });
+      const treeCoords = [
+        [-2, 18], [6, 16], [11, 21], [25, 18], [34, 18], [23, 6], [37, 6],
+        [-29, 12], [-31, 4], [-10, -2], [3, -12], [11, -16], [28, -12], [-5, 32], [9, 31]
+      ];
+      treeCoords.forEach(([tx, tz]) => {
+        districtGroup.add(
+          registerMesh(new THREE.DodecahedronGeometry(1.15, 1), foliageMat, { position: new THREE.Vector3(tx, 1.5, tz), inkEdge: false }),
+          registerMesh(new THREE.CylinderGeometry(0.18, 0.24, 1.0, 6), trunkMat, { position: new THREE.Vector3(tx, 0.5, tz), inkEdge: false })
+        );
+      });
+
+      const vehiclePalette = [0xc84b31, 0xf4ead5, 0x2b5876, 0xd9a05b];
+      for (let i = 0; i < 20; i++) {
+        const vx = -34 + i * 4.4;
+        const vz = 36 - (vx * 0.32) + (i % 2 === 0 ? -1.2 : 1.2);
+        const isBus = i % 5 === 0;
+        const vMat = new THREE.MeshStandardMaterial({
+          color: isBus ? 0x3b7a9e : vehiclePalette[i % vehiclePalette.length],
+          roughness: 0.35,
+          metalness: 0.28
+        });
+        districtGroup.add(
+          registerMesh(
+            new THREE.BoxGeometry(isBus ? 2.8 : 1.45, isBus ? 0.95 : 0.65, 0.85),
+            vMat,
+            { position: new THREE.Vector3(vx, isBus ? 0.62 : 0.48, vz), rotation: { x: 0, y: 0.32, z: 0 } }
+          )
+        );
+      }
+
+      // -----------------------------------------------------------------------
+      // E. LAYERED SAGE-TEAL MOUNTAIN RIDGES & CONTOUR INK LINES
+      // -----------------------------------------------------------------------
+      const mountainGeo = new THREE.PlaneGeometry(290, 98, 76, 30);
+      mountainGeo.rotateX(-Math.PI / 2);
+      const mPos = mountainGeo.attributes.position;
+      for (let i = 0; i < mPos.count; i++) {
+        const x = mPos.getX(i);
+        const z = mPos.getZ(i);
+        const distFromFront = Math.max(0, (46 - z) / 94);
+        const ridge1 = Math.sin(x * 0.044 + 0.4) * 9.8 + Math.cos(x * 0.105) * 4.4;
+        const ridge2 = Math.sin(x * 0.021 - 1.0) * 14.5;
+        const height = Math.pow(distFromFront, 1.25) * (25 + ridge1 + ridge2);
+        mPos.setY(i, Math.max(0, height));
+      }
+      mountainGeo.computeVertexNormals();
+
+      const mountainMat = new THREE.MeshStandardMaterial({
+        color: 0x3c7064,
+        roughness: 0.88,
+        metalness: 0.02,
+        flatShading: true
+      });
+      const mountainMesh = registerMesh(mountainGeo, mountainMat, {
+        position: new THREE.Vector3(0, 0, -120),
+        inkEdge: false,
+        name: 'Layered_SageTeal_Mountains'
+      });
+      cityExportGroup.add(mountainMesh);
+
+      const wireGeo = new THREE.WireframeGeometry(mountainGeo);
+      const wireMat = new THREE.LineBasicMaterial({ color: 0x162925, transparent: true, opacity: 0.28 });
+      mountainGridMesh = new THREE.LineSegments(wireGeo, wireMat);
+      mountainGridMesh.position.set(0, 0.14, -120);
+      mountainGridMesh.userData.isInkEdge = true;
+      cityExportGroup.add(mountainGridMesh);
+
+      // -----------------------------------------------------------------------
+      // F. SCULPTURAL 3D MULTI-LOBED UKIYO-E CLOUD BANKS
+      // -----------------------------------------------------------------------
+      cloudsGroup = new THREE.Group();
+      cloudsGroup.name = 'Sculptural_UkiyoE_Cloud_Banks';
+      cityExportGroup.add(cloudsGroup);
+
+      const cloudMat = new THREE.MeshStandardMaterial({
+        color: 0xf5ebd3,
+        roughness: 0.90,
+        metalness: 0.0
+      });
+
+      const cloudClusters = [
+        // Mid-ground basin drifting cloud banks
+        { x: -46, y: 24, z: -64, sx: 27, sy: 3.2, sz: 9 },
+        { x: -15, y: 27, z: -72, sx: 31, sy: 3.6, sz: 10 },
+        { x: 48, y: 25, z: -66, sx: 28, sy: 3.4, sz: 9 },
+        // High-altitude wispy Ukiyo-e cloud bands
+        { x: -58, y: 39, z: -86, sx: 35, sy: 2.8, sz: 8 },
+        { x: 55, y: 37, z: -88, sx: 32, sy: 2.8, sz: 8 },
+        // Foreground corner framing Ukiyo-e cloud wisps (bottom-left & bottom-right)
+        { x: -42, y: 9, z: 48, sx: 18, sy: 2.0, sz: 6 },
+        { x: 44, y: 10, z: 46, sx: 19, sy: 2.1, sz: 6 }
+      ];
+
+      cloudClusters.forEach((cl, idx) => {
+        const cluster = new THREE.Group();
+        cluster.position.set(cl.x, cl.y, cl.z);
+
+        const shelf = registerMesh(
+          new THREE.CylinderGeometry(cl.sx * 0.45, cl.sx * 0.52, cl.sy * 0.45, 20),
+          cloudMat,
+          { edgeThreshold: 34, edgeOpacity: 0.38, name: `UkiyoE_CloudBank_${idx + 1}` }
+        );
+        shelf.scale.set(1, 1, cl.sz / cl.sx);
+        cluster.add(shelf);
+
+        const lobes = 5;
+        for (let l = 0; l < lobes; l++) {
+          const lx = ((l / (lobes - 1)) - 0.5) * cl.sx * 0.72;
+          const r = cl.sy * (0.76 + Math.sin(l * 1.4) * 0.3);
+          const puff = registerMesh(
+            new THREE.SphereGeometry(r, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.62),
+            cloudMat,
+            {
+              position: new THREE.Vector3(lx, cl.sy * 0.15, (l % 2 === 0 ? 0.6 : -0.6)),
+              inkEdge: false
+            }
+          );
+          puff.scale.set(1.8, 0.85, 1.3);
+          cluster.add(puff);
+        }
+
+        cloudsGroup.add(cluster);
+      });
+    }
+
+    // =========================================================================
+    // 5. PBR SHADING INSPECTOR & SUN LIGHT UPDATES
+    // =========================================================================
+    const diagnosticMaterials = {
+      clay: new THREE.MeshStandardMaterial({
+        color: 0xebe3d3,
+        roughness: 0.85,
+        metalness: 0.0
+      }),
+      wireframe: new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        wireframe: true
+      }),
+      roughnessHigh: new THREE.MeshStandardMaterial({ color: 0x2a9d8f, roughness: 0.9, metalness: 0.0 }),
+      roughnessLow: new THREE.MeshStandardMaterial({ color: 0xe76f51, roughness: 0.15, metalness: 0.85 })
+    };
+
+    function applyShadingMode(mode) {
+      pbrMeshes.forEach(({ mesh, originalMaterial }) => {
+        if (mode === 'pbr') {
+          mesh.material = originalMaterial;
+        } else if (mode === 'clay') {
+          mesh.material = diagnosticMaterials.clay;
+        } else if (mode === 'wireframe') {
+          mesh.material = diagnosticMaterials.wireframe;
+        } else if (mode === 'roughness') {
+          const isGlossy = (originalMaterial.metalness || 0) > 0.25 || (originalMaterial.roughness || 1) < 0.45;
+          mesh.material = isGlossy ? diagnosticMaterials.roughnessLow : diagnosticMaterials.roughnessHigh;
+        }
+      });
+    }
+
+    function updateSunPosition() {
+      const azimuthDeg = parseFloat(document.getElementById('slider-azimuth').value);
+      const elevationDeg = parseFloat(document.getElementById('slider-elevation').value);
+      const intensity = parseFloat(document.getElementById('slider-intensity').value);
+      const exposure = parseFloat(document.getElementById('slider-exposure').value);
+
+      document.getElementById('val-azimuth').textContent = `${azimuthDeg}°`;
+      document.getElementById('val-elevation').textContent = `${elevationDeg}°`;
+      document.getElementById('val-intensity').textContent = intensity.toFixed(1);
+      document.getElementById('val-exposure').textContent = exposure.toFixed(2);
+
+      const phi = THREE.MathUtils.degToRad(90 - elevationDeg);
+      const theta = THREE.MathUtils.degToRad(azimuthDeg);
+      const radius = 140;
+
+      sunLight.position.setFromSphericalCoords(radius, phi, theta);
+      sunLight.intensity = intensity;
+      renderer.toneMappingExposure = exposure;
+
+      if (elevationDeg < 22) {
+        sunLight.color.setHex(0xffb86c);
+      } else {
+        sunLight.color.setHex(0xfff4df);
+      }
+    }
+
+    // =========================================================================
+    // 6. REAL 3D MODEL EXPORT (.GLB & .OBJ)
+    // =========================================================================
+    function exportModel(format) {
+      showToast(`正在打包 3D 模型 (.${format.toUpperCase()})，請稍候...`);
+
+      const hiddenLines = [];
+      cityExportGroup.traverse((obj) => {
+        if (obj.isLineSegments && obj.visible) {
+          obj.visible = false;
+          hiddenLines.push(obj);
+        }
+      });
+
+      const restoreLines = () => {
+        hiddenLines.forEach((l) => (l.visible = true));
+      };
+
+      setTimeout(() => {
+        try {
+          if (format === 'glb') {
+            const exporter = new GLTFExporter();
+            exporter.parse(
+              cityExportGroup,
+              (result) => {
+                restoreLines();
+                const blob = new Blob([result], { type: 'application/octet-stream' });
+                triggerDownload(blob, 'Taipei101_UkiyoE_Cityscape_PBR.glb');
+                showToast('成功匯出 Taipei101_UkiyoE_Cityscape_PBR.glb！');
+              },
+              (error) => {
+                restoreLines();
+                console.error('GLTF Export Error:', error);
+                showToast('匯出 GLB 時發生錯誤。');
+              },
+              { binary: true }
+            );
+          } else if (format === 'obj') {
+            const exporter = new OBJExporter();
+            const objText = exporter.parse(cityExportGroup);
+            restoreLines();
+            const blob = new Blob([objText], { type: 'text/plain' });
+            triggerDownload(blob, 'Taipei101_UkiyoE_Cityscape_Mesh.obj');
+            showToast('成功匯出 Taipei101_UkiyoE_Cityscape_Mesh.obj！');
+          }
+        } catch (err) {
+          restoreLines();
+          console.error(err);
+          showToast('模型匯出失敗，請重試。');
+        }
+      }, 60);
+    }
+
+    function triggerDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    // =========================================================================
+    // 7. INITIALIZATION, UI BINDINGS & RENDER LOOP
+    // =========================================================================
+    function init() {
+      const container = document.getElementById('canvas-container');
+
+      scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0xd8ccb4, 0.0022);
+
+      camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.5, 650);
+      camera.position.copy(CAMERA_PRESETS.masterView.pos);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.copy(CAMERA_PRESETS.masterView.target);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.maxPolarAngle = Math.PI * 0.485;
+      controls.minDistance = 12;
+      controls.maxDistance = 230;
+      controls.update();
+
+      controls.addEventListener('start', () => {
+        targetCamPos = null;
+        targetLookAt = null;
+      });
+
+      const env = createUkiyoSkyEnvironment(renderer);
+      scene.background = env.backgroundTex;
+      scene.environment = env.envMap;
+
+      hemiLight = new THREE.HemisphereLight(0xa8c8dc, 0xb89f78, 0.72);
+      scene.add(hemiLight);
+
+      sunLight = new THREE.DirectionalLight(0xfff4df, 2.8);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.width = 2048;
+      sunLight.shadow.mapSize.height = 2048;
+      sunLight.shadow.camera.near = 10;
+      sunLight.shadow.camera.far = 300;
+      const d = 96;
+      sunLight.shadow.camera.left = -d;
+      sunLight.shadow.camera.right = d;
+      sunLight.shadow.camera.top = d;
+      sunLight.shadow.camera.bottom = -d;
+      sunLight.shadow.bias = -0.00045;
+      scene.add(sunLight);
+
+      fillLight = new THREE.DirectionalLight(0x6d9dc5, 0.55);
+      fillLight.position.set(-70, 45, -60);
+      scene.add(fillLight);
+
+      const textures = createProceduralTextures();
+      buildSceneGeometry(textures);
+      updateSunPosition();
+
+      let totalTriangles = 0;
+      cityExportGroup.traverse((obj) => {
+        if (obj.isMesh && obj.geometry) {
+          const geo = obj.geometry;
+          totalTriangles += geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3;
+        }
+      });
+      document.getElementById('poly-count').textContent = `Tris: ${Math.round(totalTriangles).toLocaleString()}`;
+
+      setupEventListeners();
+
+      const loader = document.getElementById('loading-overlay');
+      loader.classList.add('opacity-0');
+      setTimeout(() => loader.remove(), 550);
+
+      animate();
+    }
+
+    function setupEventListeners() {
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      const hudPanel = document.getElementById('hud-panel');
+      document.getElementById('toggle-hud-btn').addEventListener('click', () => {
+        hudPanel.classList.toggle('hidden');
+      });
+
+      // Camera Presets
+      document.querySelectorAll('.cam-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.cam-btn').forEach((b) => {
+            b.classList.remove('bg-[#c84b31]', 'text-white');
+            b.classList.add('text-stone-200');
+          });
+          btn.classList.add('bg-[#c84b31]', 'text-white');
+          btn.classList.remove('text-stone-200');
+
+          const preset = CAMERA_PRESETS[btn.dataset.cam];
+          if (preset) {
+            targetCamPos = preset.pos.clone();
+            targetLookAt = preset.target.clone();
+            if (preset.sun) {
+              document.getElementById('slider-azimuth').value = preset.sun.azimuth;
+              document.getElementById('slider-elevation').value = preset.sun.elevation;
+              document.getElementById('slider-intensity').value = preset.sun.intensity;
+              updateSunPosition();
+            }
+          }
+        });
+      });
+
+      // PBR Shading Mode Buttons
+      document.querySelectorAll('.mode-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.mode-btn').forEach((b) => {
+            b.classList.remove('bg-[#2a6f68]', 'text-white', 'border-[#52b788]/50');
+            b.classList.add('bg-stone-800/90', 'text-stone-300', 'border-stone-700');
+          });
+          btn.classList.add('bg-[#2a6f68]', 'text-white', 'border-[#52b788]/50');
+          btn.classList.remove('bg-stone-800/90', 'text-stone-300', 'border-stone-700');
+          applyShadingMode(btn.dataset.mode);
+        });
+      });
+
+      // Lighting Sliders
+      ['slider-azimuth', 'slider-elevation', 'slider-intensity', 'slider-exposure'].forEach((id) => {
+        document.getElementById(id).addEventListener('input', updateSunPosition);
+      });
+
+      // Toggle Ink Outlines
+      document.getElementById('toggle-edges').addEventListener('change', (e) => {
+        const show = e.target.checked;
+        cityExportGroup.traverse((obj) => {
+          if (obj.userData && obj.userData.isInkEdge && obj !== mountainGridMesh) {
+            obj.visible = show;
+          }
+        });
+      });
+
+      // Toggle Cloud Animation
+      document.getElementById('toggle-cloud-anim').addEventListener('change', (e) => {
+        cloudAnimEnabled = e.target.checked;
+      });
+
+      // Toggle Mountain Topographic Contours
+      document.getElementById('toggle-mountain-grid').addEventListener('change', (e) => {
+        if (mountainGridMesh) mountainGridMesh.visible = e.target.checked;
+      });
+
+      // Export Buttons
+      document.getElementById('export-glb-btn').addEventListener('click', () => exportModel('glb'));
+      document.getElementById('export-obj-btn').addEventListener('click', () => exportModel('obj'));
+    }
+
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const elapsed = clock.getElapsedTime();
+
+      if (targetCamPos && targetLookAt) {
+        camera.position.lerp(targetCamPos, 0.065);
+        controls.target.lerp(targetLookAt, 0.065);
+        if (camera.position.distanceTo(targetCamPos) < 0.25) {
+          targetCamPos = null;
+          targetLookAt = null;
+        }
+      }
+
+      if (cloudsGroup && cloudAnimEnabled) {
+        cloudsGroup.children.forEach((cluster, i) => {
+          cluster.position.x += Math.sin(elapsed * 0.28 + i) * 0.01;
+        });
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
